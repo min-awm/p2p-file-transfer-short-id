@@ -23,10 +23,12 @@ export const selectItem = (id: string) => ({
     type: ConnectionActionType.CONNECTION_ITEM_SELECT, id
 })
 
-export const connectPeer: (id: string) => (dispatch: Dispatch) => Promise<void>
-    = (id: string) => (async (dispatch) => {
+export const connectPeer: (peerId: string) => (dispatch: Dispatch) => Promise<void>
+    = (peerId: string) => (async (dispatch) => {
     dispatch(setLoading(true))
     try {
+        const prefixId = localStorage.getItem("prefix_id") || "any-your-string-";
+        const id = `${prefixId}${peerId}`
         await PeerConnection.connectPeer(id)
         PeerConnection.onConnectionDisconnected(id, () => {
             message.info("Connection closed: " + id)

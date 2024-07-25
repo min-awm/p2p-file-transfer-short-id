@@ -19,20 +19,33 @@ let connectionMap: Map<string, DataConnection> = new Map<string, DataConnection>
 
 export const PeerConnection = {
     getPeer: () => peer,
-    startPeerSession: () => new Promise<string>((resolve, reject) => {
-        try {
-            peer = new Peer()
-            peer.on('open', (id) => {
-                console.log('My ID: ' + id)
-                resolve(id)
-            }).on('error', (err) => {
-                console.log(err)
-                message.error(err.message)
-            })
-        } catch (err) {
-            console.log(err)
-            reject(err)
-        }
+    startPeerSession: (randomId = 0) => new Promise<string>((resolve, reject) => {
+        const startSession = (currentId: number) => {
+            try {
+                const prefixId = localStorage.getItem("prefix_id") || "any-your-string-";
+                const peerId = currentId || Math.floor(Math.random() * 101);
+                peer = new Peer(`${prefixId}${peerId}`);
+
+                peer.on('open', (id) => {
+                    console.log('My ID: ' + id);
+                    resolve(id);
+                });
+
+                peer.on('error', (err) => {
+                    console.log(err);
+                    message.error(err.message);
+
+                    if (err.type === "unavailable-id") {
+                        startSession(peerId + 1)
+                    } 
+                });
+            } catch (err) {
+                console.log(err);
+                reject(err);
+            }
+        };
+
+        return startSession(randomId);
     }),
     closePeerSession: () => new Promise<void>((resolve, reject) => {
         try {

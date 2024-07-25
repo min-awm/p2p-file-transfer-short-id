@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {Button, Card, Col, Input, Menu, MenuProps, message, Row, Space, Typography, Upload, UploadFile, List} from "antd";
 import {CopyOutlined, UploadOutlined, DownloadOutlined} from "@ant-design/icons";
 import {useAppDispatch, useAppSelector} from "./store/hooks";
@@ -33,6 +33,11 @@ export const App: React.FC = () => {
     const peer = useAppSelector((state) => state.peer)
     const connection = useAppSelector((state) => state.connection)
     const download = useAppSelector((state) => state.download)
+    const [prefixId, setPrefixId] = useAsyncState(localStorage.getItem("prefix_id") || "any-your-string-")
+    const peerId = useMemo(() => {
+        return peer?.id?.replace(prefixId, "")
+      }, [peer.id]);
+    
     const dispatch = useAppDispatch()
 
     const handleStartSession = () => {
@@ -41,6 +46,7 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         handleStartSession()
+     
         // eslint-disable-next-line
     }, []);
 
@@ -116,25 +122,49 @@ export const App: React.FC = () => {
         }
     }
 
+    const savePrefixId = () => {
+        if(prefixId) {
+            localStorage.setItem('prefix_id', prefixId)
+            message.success("Save key")
+        }
+    }
+
     return (
         <Row justify={"center"} align={"top"}>
             <Col xs={24} sm={24} md={20} lg={16} xl={12}>
                 <Card>
+                    <a href="https://github.com/min-awm/p2p-file-transfer-short-id" target="_blank" rel="noopener noreferrer">
+                        Github
+                    </a>
                     <Title level={2} style={{textAlign: "center"}}>P2P File Transfer</Title>
                         <Card hidden={peer.started}>
                             <Button onClick={handleStartSession} loading={peer.loading}>Start</Button>
                         </Card>
-                        <Card hidden={!peer.started}>
-                            <Space direction="horizontal">
-                                <div>ID: {peer.id}</div>
-                                <Button icon={<CopyOutlined/>} onClick={async () => {
-                                    await navigator.clipboard.writeText(peer.id || "")
-                                    message.info("Copied: " + peer.id)
-                                }}/>
-                                <Button danger onClick={handleStopSession}>Stop</Button>
-                            </Space>
-                        </Card>
+                       
                         <div hidden={!peer.started}>
+                            <Card>
+                                <Space direction="horizontal">
+                                    Key: 
+                                    <Space direction="horizontal">
+                                    <Input placeholder={"Any your string"}
+                                           value={prefixId}
+                                           onChange={e => setPrefixId(e.target.value)}
+                                           required={true}
+                                           />
+                                    <Button onClick={savePrefixId}>Save</Button>
+                                </Space>
+                                </Space>
+                            </Card>
+                            <Card>
+                                <Space direction="horizontal">                                        
+                                    ID: {peerId}
+                                    <Button icon={<CopyOutlined/>} onClick={async () => {
+                                        await navigator.clipboard.writeText(peerId || "")
+                                        message.info("Copied: " + peerId)
+                                    }}/>
+                                    <Button danger onClick={handleStopSession}>Stop</Button>
+                                </Space>
+                            </Card>
                             <Card>
                                 <Space direction="horizontal">
                                     <Input placeholder={"ID"}
@@ -201,8 +231,6 @@ export const App: React.FC = () => {
                         </div>
                 </Card>
             </Col>
-
-
         </Row>
     )
 }
