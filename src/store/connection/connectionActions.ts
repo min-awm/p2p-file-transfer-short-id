@@ -2,7 +2,7 @@ import {ConnectionActionType} from "./connectionTypes";
 import {Dispatch} from "redux";
 import {DataType, PeerConnection} from "../../helpers/peer";
 import {message} from "antd";
-import download from "js-file-download";
+import { addBlobUrl } from '../download/downloadSlice'
 
 export const changeConnectionInput = (id: string) => ({
     type: ConnectionActionType.CONNECTION_INPUT_CHANGE, id
@@ -35,14 +35,16 @@ export const connectPeer: (id: string) => (dispatch: Dispatch) => Promise<void>
         PeerConnection.onConnectionReceiveData(id, (file) => {
             message.info("Receiving file " + file.fileName + " from " + id)
             if (file.dataType === DataType.FILE) {
-                download(file.file || '', file.fileName || "fileName", file.fileType)
+                const blob = new Blob([file.file ?? ""], { type: file.fileType || "text/plain"});
+                const blobUrl = URL.createObjectURL(blob);
+                dispatch(addBlobUrl({blobUrl, name: file.fileName || "fileName"}))
             }
         })
         dispatch(addConnectionList(id))
-        dispatch(setLoading(false))
     } catch (err) {
-        dispatch(setLoading(false))
         console.log(err)
+    } finally {
+        dispatch(setLoading(false))
     }
 })
 

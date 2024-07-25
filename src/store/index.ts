@@ -1,11 +1,13 @@
 import {configureStore} from '@reduxjs/toolkit'
 import {PeerReducer} from "./peer/peerReducer";
 import {ConnectionReducer} from "./connection/connectionReducer";
+import DownloadReducer from "./download/downloadSlice";
 
 export const store = configureStore({
     reducer: {
         peer: PeerReducer,
-        connection: ConnectionReducer
+        connection: ConnectionReducer,
+        download: DownloadReducer,
     }
 })
 

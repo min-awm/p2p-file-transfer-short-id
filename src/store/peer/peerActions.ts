@@ -3,7 +3,7 @@ import {Dispatch} from "redux";
 import {DataType, PeerConnection} from "../../helpers/peer";
 import {message} from "antd";
 import {addConnectionList, removeConnectionList} from "../connection/connectionActions";
-import download from "js-file-download";
+import { addBlobUrl } from '../download/downloadSlice'
 
 export const startPeerSession = (id: string) => ({
     type: PeerActionType.PEER_SESSION_START, id
@@ -32,14 +32,16 @@ export const startPeer: () => (dispatch: Dispatch) => Promise<void>
             PeerConnection.onConnectionReceiveData(peerId, (file) => {
                 message.info("Receiving file " + file.fileName + " from " + peerId)
                 if (file.dataType === DataType.FILE) {
-                    download(file.file || '', file.fileName || "fileName", file.fileType)
+                    const blob = new Blob([file.file ?? ""], { type: file.fileType || "text/plain"});
+                    const blobUrl = URL.createObjectURL(blob);
+                    dispatch(addBlobUrl({blobUrl, name: file.fileName || "fileName"}))
                 }
             })
         })
         dispatch(startPeerSession(id))
-        dispatch(setLoading(false))
     } catch (err) {
         console.log(err)
+    } finally {
         dispatch(setLoading(false))
     }
 })

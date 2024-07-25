@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import {Button, Card, Col, Input, Menu, MenuProps, message, Row, Space, Typography, Upload, UploadFile} from "antd";
-import {CopyOutlined, UploadOutlined} from "@ant-design/icons";
+import {Button, Card, Col, Input, Menu, MenuProps, message, Row, Space, Typography, Upload, UploadFile, List} from "antd";
+import {CopyOutlined, UploadOutlined, DownloadOutlined} from "@ant-design/icons";
 import {useAppDispatch, useAppSelector} from "./store/hooks";
 import {startPeer, stopPeerSession} from "./store/peer/peerActions";
 import * as connectionAction from "./store/connection/connectionActions"
 import {DataType, PeerConnection} from "./helpers/peer";
 import {useAsyncState} from "./helpers/hooks";
+import JSZip from 'jszip';
+import jsFileDownload from "js-file-download";
 
 const {Title} = Typography
 type MenuItem = Required<MenuProps>['items'][number]
@@ -30,6 +32,7 @@ export const App: React.FC = () => {
 
     const peer = useAppSelector((state) => state.peer)
     const connection = useAppSelector((state) => state.connection)
+    const download = useAppSelector((state) => state.download)
     const dispatch = useAppDispatch()
 
     const handleStartSession = () => {
@@ -38,6 +41,7 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         handleStartSession()
+        // eslint-disable-next-line
     }, []);
 
 
@@ -65,21 +69,50 @@ export const App: React.FC = () => {
         }
         try {
             await setSendLoading(true);
-            let file = fileList[0] as unknown as File;
-            let blob = new Blob([file], {type: file.type});
+            for (const file of fileList) {
+                let blob = new Blob([file], {type: file.type});
+                await PeerConnection.sendConnection(connection.selectedId, {
+                    dataType: DataType.FILE,
+                    file: blob,
+                    fileName: file.name,
+                    fileType: file.type
+                })
 
-            await PeerConnection.sendConnection(connection.selectedId, {
-                dataType: DataType.FILE,
-                file: blob,
-                fileName: file.name,
-                fileType: file.type
-            })
+                message.info(`Send ${file.name} successfully`)
+            }
+         
             await setSendLoading(false)
-            message.info("Send file successfully")
         } catch (err) {
             await setSendLoading(false)
             console.log(err)
             message.error("Error when sending file")
+        }
+    }
+
+    const downloadAllFn = async () => {
+        const zip = new JSZip();
+        
+        for (const file of download.files) {
+            let blob = await fetch(file.blobUrl).then(r => r.blob());
+            zip.file(file.name, blob)
+        }
+
+        try {
+            const content = await zip.generateAsync({ type: "blob" });
+
+            // Generate name zip
+            const timeNow = new Date();
+            const year = timeNow.getFullYear();
+            const month = String(timeNow.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+            const day = String(timeNow.getDate()).padStart(2, '0');
+            const hours = String(timeNow.getHours()).padStart(2, '0');
+            const minutes = String(timeNow.getMinutes()).padStart(2, '0');
+            const seconds = String(timeNow.getSeconds()).padStart(2, '0');
+
+            const nameZip = `a_${year}_${month}_${day}_${hours}_${minutes}_${seconds}`;
+            jsFileDownload(content, nameZip);
+        } catch (error) {
+            console.error("Error generating ZIP file:", error);
         }
     }
 
@@ -128,10 +161,13 @@ export const App: React.FC = () => {
                             </Card>
                             <Card title="Send File">
                                 <Upload fileList={fileList}
-                                        maxCount={1}
-                                        onRemove={() => setFileList([])}
+                                        multiple={true}
+                                        onRemove={(file) => {
+                                            const fileListRemoved = fileList.filter((item: UploadFile) => item.uid !== file.uid)
+                                            setFileList(fileListRemoved)
+                                        }}
                                         beforeUpload={(file) => {
-                                            setFileList([file])
+                                            setFileList((fileList: UploadFile[]) => ([...fileList, file]))
                                             return false
                                         }}>
                                     <Button icon={<UploadOutlined/>}>Select File</Button>
@@ -146,6 +182,22 @@ export const App: React.FC = () => {
                                     {sendLoading ? 'Sending' : 'Send'}
                                 </Button>
                             </Card>
+
+                            <div hidden={!download.files.length}>
+                                <List
+                                    header={<div style={{display: 'flex', justifyContent: 'space-between'}}>
+                                        <span>File List</span>
+                                        <Button onClick={downloadAllFn}>Download All</Button>
+                                    </div>}
+                                    bordered
+                                    dataSource={download.files}
+                                    renderItem={(file) => (
+                                        <List.Item>
+                                            <a href={file.blobUrl} download={file.name}>{file.name} <DownloadOutlined /></a>
+                                        </List.Item>
+                                    )}
+                                    />
+                            </div>
                         </div>
                 </Card>
             </Col>
